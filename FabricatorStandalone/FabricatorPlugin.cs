@@ -14,6 +14,7 @@ using RoR2;
 using UnityEngine.AddressableAssets;
 using RoR2.ContentManagement;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using static R2API.DirectorAPI;
 
 #pragma warning disable CS0618 // Type or member is obsolete
 [assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
@@ -34,7 +35,7 @@ namespace FabricatorStandalone
         public const string guid = "com." + teamName + "." + modName;
         public const string teamName = "RiskOfBrainrot";
         public const string modName = "Fabricators";
-        public const string version = "1.0.0";
+        public const string version = "1.0.2";
 
 
         public static BasicPickupDropTable doubleChestDropTable;
@@ -42,7 +43,7 @@ namespace FabricatorStandalone
         public static int fabricatorCommonFirstCost = 30; //60; cost is incurred twice
         public static int fabricatorUncommonFirstCost = 60; //90; cost is incurred twice
         public static int fabricatorSecondCost = 30; //60; cost is incurred twice
-        public int doubleChestWeight = 15; //idk
+        public static int doubleChestWeight = 16; //idk
         public static DirectorCard fabricatorCommonDirectorCard;
         public static InteractableSpawnCard fabricatorCommonSpawnCard;
         public static GameObject fabricatorCommonPrefab;
@@ -60,8 +61,8 @@ namespace FabricatorStandalone
         public static GameObject fabricatorUncommonPrefab => fabricatorCommonPrefab;
         public void Awake()
         {
-            LanguageAPI.Add("CASINOCHEST_NAME", "Fabricator");
-            LanguageAPI.Add("CASINOCHEST_CONTEXT", "Use Fabricator");
+            LanguageAPI.Add("CASINOCHEST_NAME", "Fabricator Chest");
+            LanguageAPI.Add("CASINOCHEST_CONTEXT", "Use Fabricator Chest");
             LanguageAPI.Add("CASINOCHEST_DESCRIPTION",
                 "Costs gold to activate and will show a single item. " +
                 "Pay twice to get two copies of the shown item, or once to get two Scrap.");
@@ -71,6 +72,7 @@ namespace FabricatorStandalone
                 fabricatorCommonPrefab = casinoChest;
                 if (casinoChest.TryGetComponent(out PurchaseInteraction purchaseInteraction))
                 {
+                    purchaseInteraction.cost = fabricatorCommonFirstCost;
                     purchaseInteraction.saleStarCompatible = false;
                 }
                 if (casinoChest.TryGetComponent(out RouletteChestController rouletteChestController))
@@ -78,11 +80,10 @@ namespace FabricatorStandalone
                     rouletteChestController.dropCount = 2;
                 }
             });
-            LoadAsync<InteractableSpawnCard>(RoR2BepInExPack.GameAssetPathsBetter.RoR2_Base_CasinoChest.iscCasinoChest_asset, (spawnCard) =>
-            {
-                fabricatorCommonSpawnCard = spawnCard;
-                fabricatorCommonDirectorCard = DirectorCards.BuildDirectorCard(spawnCard, doubleChestWeight, 0);
-            });
+
+            fabricatorCommonSpawnCard = Addressables.LoadAssetAsync<InteractableSpawnCard>(RoR2BepInExPack.GameAssetPathsBetter.RoR2_Base_CasinoChest.iscCasinoChest_asset).WaitForCompletion();
+            fabricatorCommonDirectorCard = DirectorCards.BuildDirectorCard(fabricatorCommonSpawnCard, doubleChestWeight, 0);
+
             LoadAsync<BasicPickupDropTable>(RoR2BepInExPack.GameAssetPathsBetter.RoR2_Base_CasinoChest.dtCasinoChest_asset, (dropTable) =>
             {
                 doubleChestDropTable = dropTable;
@@ -92,8 +93,10 @@ namespace FabricatorStandalone
                 doubleChestDropTable.equipmentWeight = 0;
             });
 
-            AddDoubleChestToStage1();
+            AddDoubleChestToStage1(); 
+            Hooks.Init();
         }
+
         public static AssetReferenceT<T> LoadAsync<T>(string guid, Action<T> callback) where T : UnityEngine.Object
         {
             void onCompleted(AsyncOperationHandle<T> handle)

@@ -15,6 +15,7 @@ using UnityEngine.AddressableAssets;
 using RoR2.ContentManagement;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using static FabricatorStandalone.FabricatorPlugin;
+using static R2API.DirectorAPI;
 
 namespace FabricatorStandalone
 {
@@ -25,6 +26,39 @@ namespace FabricatorStandalone
             On.RoR2.RouletteChestController.Cycling.OnEnter += DoubleChestOnInteract;
             On.RoR2.RouletteChestController.GetPickupForTime += DoubleChestScrap;
             On.RoR2.RouletteChestController.EjectPickupServer += DoubleChestDoubleLoot;
+            DirectorAPI.InteractableActions += ScrapperOccurrenceHook;
+        }
+        private static void ScrapperOccurrenceHook(DccsPool pool, StageInfo stageInfo)
+        {
+            ChangeInteractableWeightForPool(pool, DirectorAPI.Helpers.InteractableNames.AdaptiveChest.ToLowerInvariant(), FabricatorPlugin.doubleChestWeight);
+            void ChangeInteractableWeightForPool(DccsPool pool, string interactableNameLowered, int newWeight, int maxPerStage = -1)
+            {
+                //Debug.Log($"Changing {interactableNameLowered} card weight!");
+                if (pool)
+                {
+                    Helpers.ForEachPoolEntryInDccsPool(pool, (poolEntry) =>
+                    {
+                        for (int i = 0; i < poolEntry.dccs.categories.Length; i++)
+                        {
+                            var cards = poolEntry.dccs.categories[i].cards.ToList();
+                            foreach (DirectorCard card in cards)
+                            {
+                                SpawnCard spawnCard = card.spawnCard;
+                                if (spawnCard.name.ToLowerInvariant() == interactableNameLowered)
+                                {
+                                    card.selectionWeight = newWeight;
+
+                                    if (maxPerStage >= 0 && spawnCard is InteractableSpawnCard)
+                                    {
+                                        ((InteractableSpawnCard)spawnCard).maxSpawnsPerStage = maxPerStage;
+                                    }
+                                }
+                            }
+                            poolEntry.dccs.categories[i].cards = cards.ToArray();
+                        }
+                    });
+                }
+            }
         }
 
         public static void DoubleChestDoubleLoot(On.RoR2.RouletteChestController.orig_EjectPickupServer orig, RouletteChestController self, UniquePickup pickup)
